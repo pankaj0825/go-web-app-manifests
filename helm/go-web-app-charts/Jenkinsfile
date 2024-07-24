@@ -15,7 +15,7 @@ pipeline {
             checkout scmGit(branches: [[name: '*/main']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/pankaj0825/go-web-app.git']])
             }
         }  
-        stage('Set Docker Tag') {
+        stage('Set Docker Image Tag') {
             steps {
                 script {
                     env.docker_tag = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
@@ -78,14 +78,7 @@ pipeline {
                 }   
             }
         }
-        stage('Update Helm Chart') {
-            steps {
-                script {
-                    sh "sed -i 's/tag: .*/tag: \"${docker_tag}\"/' helm/go-web-app-charts/values.yaml"
-                }
-            }
-        }
-        stage('Push Helm Directory to Separate Repo') {
+        stage('Update and Push Helm Repo') {
            environment {
                 GITHUB_TOKEN = credentials('go-web-app-devops-manifest')
             }
