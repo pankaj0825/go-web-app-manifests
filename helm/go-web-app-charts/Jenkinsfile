@@ -2,7 +2,7 @@ pipeline {
     agent any
     environment {
         GOLANGCI_LINT_VERSION = 'v1.56.2'
-        docker_tag = gitVersion().trim()
+        //docker_tag = ''
     }
     
     tools { 
@@ -12,9 +12,17 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                checkout scmGit(branches: [[name: '*/main']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/pankaj0825/go-web-app.git']])
+            checkout scmGit(branches: [[name: '*/main']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/pankaj0825/go-web-app.git']])
             }
-        }    
+        }  
+        stage('Set Docker Tag') {
+            steps {
+                script {
+                    env.docker_tag = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                    echo "Set docker_tag to: ${env.docker_tag}"
+                }
+            }
+        }
         stage('Build') {
             steps {
                 sh 'go build -o go-web-app'
@@ -71,28 +79,10 @@ pipeline {
             }
         }
         stage('Update Helm Chart') {
-        /*    environment {
-                GITHUB_TOKEN = credentials('go-web-app-devops-manifest')
-            }
-        */
             steps {
                 script {
-        /*            sh '''
-                    git config --global user.email "pankajtripathi892@gmail.com"
-                    git config --global user.name "Pankaj"
-                    git remote set-url origin https://${GITHUB_TOKEN}@github.com/pankaj0825/go-web-app-manifests.git
-                    '''
-                    // Update the Helm chart with the new image tag
-        */            
                     sh "sed -i 's/tag: .*/tag: \"${docker_tag}\"/' helm/go-web-app-charts/values.yaml"
-                    
-                    // Commit and push the changes
-        /*            sh '''
-                        git add helm/go-web-app-charts/values.yaml
-                        git commit -m "Update tag in Helm chart"
-                        git push origin main
-                    '''
-        */        }
+                }
             }
         }
         stage('Push Helm Directory to Separate Repo') {
@@ -104,24 +94,22 @@ pipeline {
                     sh 'rm -rf go-web-app-manifests'
                     sh 'git clone https://${GITHUB_TOKEN}@github.com/pankaj0825/go-web-app-manifests.git'
                     sh '''
-                    cd go-web-app-manifests/
-                    pwd
-                    ls 
-                    tree
-                    sed -i "s/tag: .*/tag: \\"${docker_tag}\\"/" helm/go-web-app-charts/values.yaml
-                    git config --global user.email "pankajtripathi892@gmail.com"
-                    git config --global user.name "Pankaj"
-                    git add .
-                    git commit -m "Update Helm manifests"
-                    git push origin main
+                        cd go-web-app-manifests/
+                        sed -i "s/tag: .*/tag: \\"${docker_tag}\\"/" helm/go-web-app-charts/values.yaml
+                        git config --global user.email "pankajtripathi892@gmail.com"
+                        git config --global user.name "Pankaj"
+                        git add .
+                        git commit -m "Update Helm manifests"
+                        git push origin main
                     '''
                 }
             }
         }
     }
 }
-
+/*
 def gitVersion() {
     def commitHash = sh returnStdout: true, script: 'git rev-parse --short HEAD'
+    echo "Current commit hash: ${commitHash}"
     return commitHash
-}
+}*/
