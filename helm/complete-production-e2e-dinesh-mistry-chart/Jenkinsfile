@@ -1,0 +1,110 @@
+pipeline {
+    agent any
+    
+tools {
+    maven 'maven3'
+}
+
+    
+    stages {
+        stage('Workspace Cleanup') {
+            steps {
+                cleanWs()
+            }
+        }
+
+        stage('Code Checkout') {
+            steps {
+                checkout scmGit(branches: [[name: '*/main']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/pankaj0825/complete-prodcution-e2e-pipeline.git']])
+            }
+        }
+    
+        stage('Build Application') {
+            steps {
+                sh 'mvn clean package'
+            }
+        }
+        
+        stage('Unit Test') {
+            steps {
+                sh 'mvn test'
+            }
+        }
+        
+        stage('Static Code Analysis') {
+            steps {
+                script {
+                    withSonarQubeEnv(credentialsId: 'sonarqube-jenkins') {
+                        sh 'mvn sonar:sonar'
+                    }
+                }
+            }
+        }
+        
+        stage('Quality Gate') {
+            steps {
+                script {
+                    withSonarQubeEnv(credentialsId: 'sonarqube-jenkins') {
+                        waitForQualityGate abortPipeline: false
+                    }
+                }
+            }
+        }
+        
+        stage('Image Build') {
+            steps {
+                script {
+                    withDockerRegistry(credentialsId: 'dockerhub') {
+                        env.docker_tag = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                        echo "Set docker_tag to: ${env.docker_tag}"
+                        sh 'docker build -t pankaj011/complete-prodcution-e2e-pipeline:${docker_tag} .'
+                    }
+                }
+            }
+        }
+        
+        stage('Trivy Scan') {
+            steps {
+                sh 'trivy image --format table -o trivy_image.html pankaj011/complete-prodcution-e2e-pipeline:${docker_tag}'
+            }
+        }
+        stage('Image Push') {
+            steps {
+                script {
+                    withDockerRegistry(credentialsId: 'dockerhub') {
+                        sh 'docker push pankaj011/complete-prodcution-e2e-pipeline:${docker_tag}'
+                    }
+                }
+            }
+        }
+        
+        stage('Image Cleanup') {
+            steps {
+                sh 'docker rmi pankaj011/complete-prodcution-e2e-pipeline:${docker_tag}'
+            }
+        }
+        
+        stage('Update and Push Helm Repo') {
+           environment {
+                GITHUB_TOKEN = credentials('go-web-app-devops-manifest')
+            }
+            steps {
+                script {
+                    sh 'git clone https://${GITHUB_TOKEN}@github.com/pankaj0825/go-web-app-manifests.git'
+                    sh '''
+                        cd go-web-app-manifests/helm/complete-production-e2e-dinesh-mistry-chart
+                        pwd
+                        ls -l
+                        tree
+                        sed -i "s/tag: .*/tag: \\"${docker_tag}\\"/" values.yaml
+                        git config --global user.email "pankajtripathi892@gmail.com"
+                        git config --global user.name "Pankaj"
+                        git add .
+                        git commit -m "Update Helm manifests"
+                        git push origin main
+                    '''
+                }
+            }
+        }
+    }
+}
