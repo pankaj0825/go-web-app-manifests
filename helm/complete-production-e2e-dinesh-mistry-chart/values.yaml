@@ -8,4 +8,4 @@ image:
   repository: pankaj011/complete-prodcution-e2e-pipeline
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "8d9d2ca"
+  tag: "3db4afa"
