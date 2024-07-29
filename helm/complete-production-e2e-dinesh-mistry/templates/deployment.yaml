@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: complete-production-ec2-deployment
+  labels: 
+    app: dinesh-mistry-app
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: dinesh-mistry-app
+  template:
+    metadata:
+      labels:
+        app: dinesh-mistry-app
+    spec:
+      containers:
+      - name: complete-production-ec2-deployment
+        image: pankaj011/complete-prodcution-e2e-pipeline:{{ .Values.image.tag }}
+        ports:
+        - containerPort: 8080
+        imagePullPolicy: Always
