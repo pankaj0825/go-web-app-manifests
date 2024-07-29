@@ -1,7 +1,0 @@
-replicaCount: 2
-
-image:
-  repository: pankaj011/complete-prodcution-e2e-pipeline:tag
-  pullPolicy: IfNotPresent
-  # Overrides the image tag whose default is the chart appVersion.
-  tag: "f0aca9f"
